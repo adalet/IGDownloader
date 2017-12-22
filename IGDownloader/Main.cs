@@ -94,20 +94,27 @@ namespace IGDownloader
             }
             catch (Exception ex)
             {
-                return "ERROR";
+                writeToConsole(ex.Message);
+                return "";
             }
         }
 
         public void login(string user, string password)
         {
+            bool loggedOn = false;
+            LoggedOnID = getProfileID(user);
+            if (LoggedOnID == "")
+            {
+                return;
+            }
+
+            csrf = new CSRF(); // CSRF token is only necessary when the user is logging in or requesting a private profile
+            csrf.generateCSRF(); // Only needs to be generated once per session?
+            string CSRF = csrf.CSRF_Token;
+            string post = "username=" + user + "&password=" + password;
+
             try
             {
-                bool loggedOn = false;
-                LoggedOnID = getProfileID(user);
-                csrf = new CSRF(); // CSRF token is only necessary when the user is logging in or requesting a private profile
-                csrf.generateCSRF(); // Only needs to be generated once per session?
-                string CSRF = csrf.CSRF_Token;
-                string post = "username=" + user + "&password=" + password;
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://www.instagram.com/accounts/login/ajax/");
                 request.Method = "POST";
                 request.Host = "www.instagram.com";
@@ -163,6 +170,10 @@ namespace IGDownloader
                 // 17888483320059182 = getMediaList
                 string url = ACCOUNT_MEDIA_INFO;
                 id = getProfileID(info);
+                if(id == "")
+                {
+                    return "";
+                }
                 url = url.Replace("{username}", id);
                 url = url.Replace("{first}", "1000");
                 url = url.Replace("{after}", positionIndex);
@@ -183,6 +194,10 @@ namespace IGDownloader
             else
             {
                 id = getProfileID(info);
+                if (id == "")
+                {
+                    return "";
+                }
                 request = (HttpWebRequest)WebRequest.Create("https://www.instagram.com/graphql/query/?query_id=17888483320059182&variables={%22id%22:%22" + id + "%22,%22first%22:1000,%22after%22:%22" + positionIndex + "%22}" );
             }
 
@@ -224,15 +239,19 @@ namespace IGDownloader
 
         private void downloadFollowingList(string username)
         {
+            string id = getProfileID(username);
+            if (id == "")
+            {
+                return;
+            }
+            string CSRF = csrf.CSRF_Token;
+            string post = $"";
+            string url = FOLLOWING_INFO;
+            url = url.Replace("{id}", id);
+            url = url.Replace("{first}", "5000"); //5k might not work, 1k is probably the max for a current page
+
             try
             {
-                string id = getProfileID(username);
-                string CSRF = csrf.CSRF_Token;
-                string post = $"";
-                string url = FOLLOWING_INFO;
-                url = url.Replace("{id}", id);
-                url = url.Replace("{first}", "5000"); //5k might not work, 1k is probably the max for a current page
-
                 //HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://www.instagram.com/graphql/query/?query_id=17874545323001329&variables={\"id\":\"" + id + "%22,%22first%22:5000}");
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
                 request.Method = "GET";
@@ -490,7 +509,6 @@ namespace IGDownloader
 
                                 // Files are not private, once you obtain the link, it can be downloaded
                                 client.DownloadFile(new Uri(download_link), Properties.Settings.Default["SaveLocation"] + "/" + username + "/" + filename + ".jpg");
-
                             }
 
                             if (imageType == "GraphVideo" && reader.TokenType == JsonToken.PropertyName && (string)reader.Value == "video_url")
@@ -502,24 +520,10 @@ namespace IGDownloader
                                 filename = filename.Replace(FilenameTemplate.DATE, attributes.DATETIME.ToString("yyyy-MM-dd"));
                                 filename = filename.Replace(FilenameTemplate.ID, id);
 
-                                string videoJsonURL = "https://www.instagram.com/p/" + attributes.SHORTCODE + "?__a=1";
-                                string videoJson = "";
                                 try
                                 {
-                                    videoJson = client.DownloadString(videoJsonURL);
-                                }
-                                catch (WebException e)
-                                {
-                                    writeToConsole(e.Message);
-                                }
-
-                                string videoURL = getVideoDownload(videoJson);
-
-                                try
-                                {
-                                    client.DownloadFile(new Uri(attributes.DISPLAY_URL), Properties.Settings.Default["SaveLocation"] + "/" + username + "/" + filename + ".jpg");
-                                    if (videoURL != string.Empty)
-                                        client.DownloadFile(new Uri(videoURL), Properties.Settings.Default["SaveLocation"] + "/" + username + "/" + filename + ".mp4");
+                                    if (download_link != string.Empty)
+                                        client.DownloadFile(new Uri(download_link), Properties.Settings.Default["SaveLocation"] + "/" + username + "/" + filename + ".mp4");
                                 }
                                 catch (WebException e)
                                 {
@@ -635,6 +639,11 @@ namespace IGDownloader
             ImageAttributes imageAttributes = new ImageAttributes();
             WebClient client = new WebClient();
             string userID = getProfileID(username);
+
+            if (userID == "")
+            {
+                return;
+            }
 
             string myJSON = "";
 
