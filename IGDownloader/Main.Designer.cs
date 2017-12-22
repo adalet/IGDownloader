@@ -196,7 +196,7 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "Main";
-            this.Text = "Instagram Image Downloader 0.2";
+            this.Text = "Instagram Image Downloader 0.2.1";
             this.ResumeLayout(false);
             this.PerformLayout();
 
